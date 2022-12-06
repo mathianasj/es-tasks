@@ -1,0 +1,42 @@
+name: push
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - v*
+
+jobs:
+  lint:
+    name: Run S2I-build
+    runs-on: ubuntu-20.04
+
+    env:
+      IMAGE_NAME: es-tasks
+      TAGS: v1 ${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Setup S2i and Build container image
+      - name: Setup and Build
+        id: build_image
+        uses: redhat-actions/s2i-build@v2
+        with:
+          path_context: '.'
+          # Builder image for a java project
+          builder_image: 'registry.access.redhat.com/ubi8/openjdk-17:latest'
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.TAGS }}
+
+      # Push Image to Quay registry
+      - name: Push To Quay Action
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build_image.outputs.image }}
+          tags: ${{ steps.build_image.outputs.tags }}
+          registry: quay.io/${{ github.repository_owner }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
